@@ -103,16 +103,6 @@ export default class QueryEditor extends React.Component {
         'Alt-Space': () => editor.showHint({ completeSingle: true, container: this._node }),
         'Shift-Space': () => editor.showHint({ completeSingle: true, container: this._node }),
         'Shift-Alt-Space': () => editor.showHint({ completeSingle: true, container: this._node }),
-        'Cmd-Enter': () => {
-          if (this.props.onRun) {
-            this.props.onRun();
-          }
-        },
-        'Ctrl-Enter': () => {
-          if (this.props.onRun) {
-            this.props.onRun();
-          }
-        },
         'Shift-Ctrl-C': () => {
           if (this.props.onCopyQuery) {
             this.props.onCopyQuery();
@@ -132,18 +122,6 @@ export default class QueryEditor extends React.Component {
         'Shift-Ctrl-M': () => {
           if (this.props.onMergeQuery) {
             this.props.onMergeQuery();
-          }
-        },
-        'Cmd-S': () => {
-          if (this.props.onSave) {
-            this.props.onSave();
-            return false;
-          }
-        },
-        'Ctrl-S': () => {
-          if (this.props.onSave) {
-            this.props.onSave();
-            return false;
           }
         },
         'Cmd-F': 'findPersistent',
@@ -174,15 +152,10 @@ export default class QueryEditor extends React.Component {
       CodeMirror.signal(this.editor, 'change', this.editor);
     }
     if (this.props.value !== prevProps.value && this.props.value !== this.cachedValue && this.editor) {
-      // TODO: temporary fix for keeping cursor state when auto save and new line insertion collide PR#7098
-      const nextValue = this.props.value ?? '';
-      const currentValue = this.editor.getValue();
-      if (this.editor.hasFocus?.() && currentValue !== nextValue) {
-        this.cachedValue = currentValue;
-      } else {
-        this.cachedValue = nextValue;
-        this.editor.setValue(nextValue);
-      }
+      const cursor = this.editor.getCursor();
+      this.cachedValue = String(this.props.value);
+      this.editor.setValue(String(this.props.value) || '');
+      this.editor.setCursor(cursor);
     }
 
     if (this.props.theme !== prevProps.theme && this.editor) {

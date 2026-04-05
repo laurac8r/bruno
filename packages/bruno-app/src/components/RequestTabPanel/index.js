@@ -8,7 +8,7 @@ import GrpcRequestPane from 'components/RequestPane/GrpcRequestPane/index';
 import ResponsePane from 'components/ResponsePane';
 import GrpcResponsePane from 'components/ResponsePane/GrpcResponsePane';
 import { findItemInCollection } from 'utils/collections';
-import { cancelRequest, sendRequest } from 'providers/ReduxStore/slices/collections/actions';
+import { sendRequest } from 'providers/ReduxStore/slices/collections/actions';
 import { updateGqlDocsOpen } from 'providers/ReduxStore/slices/tabs';
 import RequestNotFound from './RequestNotFound';
 import QueryUrl from 'components/RequestPane/QueryUrl/index';
@@ -32,6 +32,7 @@ import WsQueryUrl from 'components/RequestPane/WsQueryUrl';
 import WSRequestPane from 'components/RequestPane/WSRequestPane';
 import WSResponsePane from 'components/ResponsePane/WsResponsePane';
 import { useTabPaneBoundaries } from 'hooks/useTabPaneBoundaries/index';
+import useKeybinding from 'hooks/useKeybinding';
 import { ScopedPersistenceProvider } from 'hooks/usePersistedState/PersistedScopeProvider';
 import ResponseExample from 'components/ResponseExample';
 import WorkspaceOverview from 'components/WorkspaceHome/WorkspaceOverview';
@@ -58,6 +59,12 @@ const RequestTabPanel = () => {
   const activeWorkspace = workspaces.find((w) => w.uid === activeWorkspaceUid);
   const isVerticalLayout = preferences?.layout?.responsePaneOrientation === 'vertical';
   const isConsoleOpen = useSelector((state) => state.logs.isConsoleOpen);
+
+  const isRequestTab = focusedTab && ['request', 'grpc-request', 'ws-request', 'graphql-request'].includes(focusedTab.type);
+  useKeybinding('sendRequest', () => {
+    handleRun();
+    return false;
+  }, { enabled: !!isRequestTab, deps: [isRequestTab] });
 
   // Use ref to avoid stale closure in event handlers
   const isVerticalLayoutRef = useRef(isVerticalLayout);
@@ -99,8 +106,9 @@ const RequestTabPanel = () => {
   const showGqlDocs = focusedTab?.gqlDocsOpen || false;
 
   const onSchemaLoad = useCallback((schema) => setSchema(schema), []);
-  const toggleDocs = useCallback(() => {
-    dispatch(updateGqlDocsOpen({ uid: activeTabUid, gqlDocsOpen: !showGqlDocs }));
+  const toggleDocs = useCallback((value = null) => {
+    const newValue = value !== null ? !!value : !showGqlDocs;
+    dispatch(updateGqlDocsOpen({ uid: activeTabUid, gqlDocsOpen: newValue }));
   }, [dispatch, activeTabUid, showGqlDocs]);
 
   const handleGqlClickReference = useCallback((reference) => {
@@ -291,20 +299,13 @@ const RequestTabPanel = () => {
       toast.error('Please enter a valid WebSocket URL');
       return;
     }
-
-    if (item.response?.stream?.running) {
-      dispatch(cancelRequest(item.cancelTokenUid, item, collection)).catch((err) =>
-        toast.custom((t) => <NetworkError onClose={() => toast.dismiss(t.id)} />, {
-          duration: 5000
-        }));
-    } else if (item.requestState !== 'sending' && item.requestState !== 'queued') {
+    if (item.requestState !== 'sending' && item.requestState !== 'queued') {
       dispatch(sendRequest(item, collection.uid)).catch((err) =>
         toast.custom((t) => <NetworkError onClose={() => toast.dismiss(t.id)} />, {
           duration: 5000
         }));
     }
   };
-
   const renderQueryUrl = () => {
     if (isGrpcRequest) {
       return <GrpcQueryUrl item={item} collection={collection} handleRun={handleRun} />;
@@ -398,7 +399,7 @@ const RequestTabPanel = () => {
         {item.type === 'graphql-request' ? (
           <div className={`graphql-docs-explorer-container ${showGqlDocs ? '' : 'hidden'}`}>
             <DocExplorer schema={schema} ref={(r) => (docExplorerRef.current = r)}>
-              <button className="mr-2" onClick={toggleDocs} aria-label="Close Documentation Explorer">
+              <button className="mr-2" data-testid="graphql-docs-close-button" onClick={() => toggleDocs(false)} aria-label="Close Documentation Explorer">
                 {'\u2715'}
               </button>
             </DocExplorer>
